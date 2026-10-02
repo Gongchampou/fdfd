@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+    <script type="module" src="/@vite/client"></script>
+
+    <script>
+      (function () {
+        var nativeRAF = window.requestAnimationFrame.bind(window);
+        var nativeCAF = window.cancelAnimationFrame.bind(window);
+        var deferred = new Map();
+        var replayed = new Map(); // syntheticId -> nativeId, from unfreeze until the callback fires or is cancelled
+        var nextId = -1;
+
+        window.__airoRafGate = {
+          frozen: false,
+          nativeRequestAnimationFrame: nativeRAF,
+          nativeCancelAnimationFrame: nativeCAF,
+        };
+
+        window.requestAnimationFrame = function (callback) {
+          if (!window.__airoRafGate.frozen) return nativeRAF(callback);
+          var id = nextId--;
+          deferred.set(id, callback);
+          return id;
+        };
+
+        window.cancelAnimationFrame = function (id) {
+          if (deferred.has(id)) {
+            deferred.delete(id);
+            return;
+          }
+          if (replayed.has(id)) {
+            var nativeId = replayed.get(id);
+            replayed.delete(id);
+            nativeCAF(nativeId);
+            return;
+          }
+          nativeCAF(id);
+        };
+
+        window.__airoRafGate.unfreeze = function () {
+          window.__airoRafGate.frozen = false;
+          var pending = Array.from(deferred.entries());
+          deferred.clear();
+          pending.forEach(function (entry) {
+            var syntheticId = entry[0];
+            var callback = entry[1];
+            var nativeId = nativeRAF(function (time) {
+              replayed.delete(syntheticId); // already ran; nothing left to cancel
+              if (window.__airoRafGate.frozen) {
+                // Re-frozen before this frame fired — re-defer under the same id, don't run it.
+                deferred.set(syntheticId, callback);
+                return;
+              }
+              callback(time);
+            });
+            replayed.set(syntheticId, nativeId);
+          });
+        };
+      })();
+    </script>
+
+    <meta charset="UTF-8" />
+    <script>
+      (function () {
+        try {
+          var u = new URL(location.href);
+          if (u.searchParams.has('airoShareToken')) {
+            u.searchParams.delete('airoShareToken');
+            history.replaceState(null, '', u.toString());
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <meta name="referrer" content="same-origin" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--app-head-->
+    <script src="/airo-video-slots.js"></script>
+    <script src="/airo-logo-orientation.js"></script>
+    <style>
+  #airo-boot-spinner {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #fff;
+    color: #555;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    opacity: 0;
+    pointer-events: none;
+    animation: airo-boot-fade 0.2s ease 1s forwards;
+  }
+  #app:not(:empty) ~ #airo-boot-spinner {
+    display: none;
+  }
+  .airo-boot-ring {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(0, 0, 0, 0.12);
+    border-top-color: #555;
+    border-radius: 50%;
+    animation: airo-boot-spin 0.9s linear infinite;
+  }
+  .airo-boot-text,
+  .airo-boot-slow-text {
+    margin: 0;
+    font-size: 14px;
+  }
+  .airo-boot-slow-text {
+    display: none;
+  }
+  #airo-boot-spinner.airo-boot-slow .airo-boot-slow-text {
+    display: block;
+  }
+  @keyframes airo-boot-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes airo-boot-fade {
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .airo-boot-ring {
+      animation-duration: 2.4s;
+    }
+  }
+</style>
+  </head>
+  <body class="fs-unmask-airo-app-builder">
+    <div id="app" class="fs-unmask-airo-app-builder"><!--app-html--></div>
+    <script type="module" src="/index.html?html-proxy&index=0.js"></script>
+    <script src="/analytics.js"></script>
+    <div id="airo-boot-spinner" role="status" aria-live="polite">
+      <div class="airo-boot-ring" aria-hidden="true"></div>
+      <p class="airo-boot-text">Loading&hellip;</p>
+      <p class="airo-boot-slow-text">Still working &mdash; the first load can take a little longer.</p>
+    </div>
+    <script>
+      (function () {
+        var spinner = document.getElementById('airo-boot-spinner');
+        if (!spinner) return;
+        var appEl = document.getElementById('app');
+        if (!appEl) {
+          spinner.remove();
+          return;
+        }
+        if (appEl.firstElementChild) {
+          spinner.remove();
+          return;
+        }
+        var observer = new MutationObserver(function () {
+          if (appEl.firstElementChild) {
+            observer.disconnect();
+            spinner.remove();
+          }
+        });
+        observer.observe(appEl, { childList: true });
+        setTimeout(function () { spinner.classList.add('airo-boot-slow'); }, 20000);
+        setTimeout(function () { observer.disconnect(); spinner.remove(); }, 90000);
+      })();
+    </script>
+  </body>
+</html>
